@@ -198,17 +198,30 @@ public class ArcheValidationStepPlugin implements IStepPluginVersion2 {
 
         // check if folder exist
 
-        // master folder is missing or empty
         try {
             Path masterFolder = Paths.get(process.getImagesOrigDirectory(false));
+            // master folder is missing or empty
             if (masterFolder == null) {
                 Helper.setFehlerMeldung("Master image folder not found");
                 log.error("Master image folder not found");
                 return PluginReturnValue.ERROR;
             }
+
+            // check if files are valid
+            for (Path imageFile : StorageProvider.getInstance().listFiles(masterFolder.toString(), NIOFileUtils.fileFilter)) {
+                Report report = FileValidator.validateFile(imageFile, "master");
+                if (!report.isReachedTargetLevel()) {
+                    // TODO
+                    System.out.println(report.getErrorMessage());
+                }
+                Path testFolder = Paths.get(imageFile.toString().substring(0, imageFile.toString().lastIndexOf(".")));
+                StorageProvider.getInstance().deleteDir(testFolder);
+            }
+
         } catch (SwapException | IOException | DAOException e) {
             log.error(e);
         }
+
         try {
             Path mediaFolder = Paths.get(process.getImagesTifDirectory(false));
             if (mediaFolder == null) {
@@ -228,6 +241,7 @@ public class ArcheValidationStepPlugin implements IStepPluginVersion2 {
                 for (Path altoFile : altoFiles) {
                     Report report = FileValidator.validateFile(altoFile, "alto");
                     if (!report.isReachedTargetLevel()) {
+                        // TODO show filename + error message in journal
                         System.out.println(report.getErrorMessage());
                     }
                     Path testFolder = Paths.get(altoFile.toString().substring(0, altoFile.toString().lastIndexOf(".")));
