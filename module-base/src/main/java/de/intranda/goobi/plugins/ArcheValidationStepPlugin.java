@@ -3,6 +3,7 @@ package de.intranda.goobi.plugins;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.Arrays;
 
 /**
@@ -33,6 +34,7 @@ import org.goobi.beans.Process;
 import org.goobi.beans.Project;
 import org.goobi.beans.Step;
 import org.goobi.files.FileValidator;
+import org.goobi.production.enums.LogType;
 import org.goobi.production.enums.PluginGuiType;
 import org.goobi.production.enums.PluginReturnValue;
 import org.goobi.production.enums.PluginType;
@@ -128,7 +130,7 @@ public class ArcheValidationStepPlugin implements IStepPluginVersion2 {
 
     @Override
     public PluginReturnValue run() {
-
+        List<String> validationErrors = new ArrayList<>();
         // check if required project data is set
         for (String propertyName : projectFields) {
             boolean propertyFound = false;
@@ -200,7 +202,7 @@ public class ArcheValidationStepPlugin implements IStepPluginVersion2 {
 
         try {
             Path masterFolder = Paths.get(process.getImagesOrigDirectory(false));
-            // master folder is missing or empty
+            // master folder is missing
             if (masterFolder == null) {
                 Helper.setFehlerMeldung("Master image folder not found");
                 log.error("Master image folder not found");
@@ -211,8 +213,7 @@ public class ArcheValidationStepPlugin implements IStepPluginVersion2 {
             for (Path imageFile : StorageProvider.getInstance().listFiles(masterFolder.toString(), NIOFileUtils.fileFilter)) {
                 Report report = FileValidator.validateFile(imageFile, "master");
                 if (!report.isReachedTargetLevel()) {
-                    // TODO
-                    System.out.println(report.getErrorMessage());
+                    validationErrors.add("master folder: " + report.getFileName() + ": " + report.getErrorMessage());
                 }
                 Path testFolder = Paths.get(imageFile.toString().substring(0, imageFile.toString().lastIndexOf(".")));
                 StorageProvider.getInstance().deleteDir(testFolder);
@@ -224,11 +225,23 @@ public class ArcheValidationStepPlugin implements IStepPluginVersion2 {
 
         try {
             Path mediaFolder = Paths.get(process.getImagesTifDirectory(false));
+            // master folder is missing
             if (mediaFolder == null) {
                 Helper.setFehlerMeldung("Media image folder not found");
                 log.error("Media image folder not found");
                 return PluginReturnValue.ERROR;
             }
+
+            // check if files are valid
+            for (Path imageFile : StorageProvider.getInstance().listFiles(mediaFolder.toString(), NIOFileUtils.fileFilter)) {
+                Report report = FileValidator.validateFile(imageFile, "media");
+                if (!report.isReachedTargetLevel()) {
+                    validationErrors.add("media folder: " + report.getFileName() + ": " + report.getErrorMessage());
+                }
+                Path testFolder = Paths.get(imageFile.toString().substring(0, imageFile.toString().lastIndexOf(".")));
+                StorageProvider.getInstance().deleteDir(testFolder);
+            }
+
         } catch (SwapException | IOException e) {
             log.error(e);
         }
@@ -241,8 +254,7 @@ public class ArcheValidationStepPlugin implements IStepPluginVersion2 {
                 for (Path altoFile : altoFiles) {
                     Report report = FileValidator.validateFile(altoFile, "alto");
                     if (!report.isReachedTargetLevel()) {
-                        // TODO show filename + error message in journal
-                        System.out.println(report.getErrorMessage());
+                        validationErrors.add("alto folder: " + report.getFileName() + ": " + report.getErrorMessage());
                     }
                     Path testFolder = Paths.get(altoFile.toString().substring(0, altoFile.toString().lastIndexOf(".")));
                     StorageProvider.getInstance().deleteDir(testFolder);
@@ -251,6 +263,18 @@ public class ArcheValidationStepPlugin implements IStepPluginVersion2 {
 
         } catch (SwapException | IOException e) {
             log.error(e);
+        }
+
+        if (!validationErrors.isEmpty()) {
+            StringBuilder sb = new StringBuilder();
+            for (String error : validationErrors) {
+                if (!sb.isEmpty()) {
+                    sb.append("\n");
+                }
+                sb.append(error);
+            }
+            Helper.addMessageToProcessJournal(process.getId(), LogType.ERROR, sb.toString());
+            return PluginReturnValue.ERROR;
         }
 
         return PluginReturnValue.FINISH;

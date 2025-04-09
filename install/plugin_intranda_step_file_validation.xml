@@ -31,10 +31,21 @@
 
 
 	<config>
-		<!-- which institution to use for (can be more then one, otherwise use *) -->
 		<institution>alto</institution>
 		<outputFolder>{processpath}/validation</outputFolder>
 		<profileName>alto</profileName>
+		<targetLevel>1</targetLevel>
+	</config>
+	<config>
+		<institution>master</institution>
+		<outputFolder>{processpath}/validation</outputFolder>
+		<profileName>image</profileName>
+		<targetLevel>1</targetLevel>
+	</config>
+	<config>
+		<institution>media</institution>
+		<outputFolder>{processpath}/validation</outputFolder>
+		<profileName>image</profileName>
 		<targetLevel>1</targetLevel>
 	</config>
 
@@ -88,6 +99,44 @@
 			uri:	the uri of the xml namespace
 	-->
 	<global>
+		<profile name="image">
+			<level>
+				<check name="isJPEG"
+					tool="fileTypeCheck"
+					group="fileformat"
+					code="Das Dokument ist keine Bild-Datei. (This is not an image file)"
+					xpathSelector="/file"
+					regEx=".* JPEG image data.*"
+				/>
+				<check name="isTIF"
+					tool="fileTypeCheck"
+					group="fileformat"
+					code="Das Dokument ist keine Bild-Datei. (This is not an image file)"
+					xpathSelector="/file"
+					regEx=".* TIFF image data.*"
+				/>
+			</level>
+
+			<level>
+				<check name="isValidJPEG"
+					dependsOn="isJPEG"
+					tool="jhove_jpeg"
+					code="JPEG Validation failed"
+					xpathSelector="//jhove:repInfo/jhove:status"
+					regex="Well-Formed and valid"
+				/>
+
+				<check name="isValidTIF"
+					dependsOn="isTIF"
+					tool="jhove_tif"
+					code="TIF Validation failed"
+					xpathSelector="//jhove:repInfo/jhove:status"
+					regex="Well-Formed and valid"
+				/>
+			</level>
+		</profile>
+
+
 		<profile name="alto">
 
 			<level>
@@ -102,8 +151,8 @@
 
 			<level>
 
-			<!-- success message: /path/to/file/00000001.xml validates -->
-			<!-- error message: /path/to/file/00000001.xml fails to validate -->
+				<!-- success message: /path/to/file/00000001.xml validates -->
+				<!-- error message: /path/to/file/00000001.xml fails to validate -->
 				<check name="isValidALTO"
 					dependsOn="isXml"
 					tool="xmllint"
@@ -111,11 +160,33 @@
 					xpathSelector="//result"
 					regEx=".*xml validates"
 				/>
+			</level>
+		</profile>
+
+		<profile name="imageFolderValidation">
+			<level>
+				<check name="isPDF"
+					tool="file"
+					group="fileformat"
+					code="Das hochgeladene Dokument ist kein PDF- oder E-Book-Dokument. Bitte prüfen Sie das Dokument entsprechend. (This is not a PDF-File)"
+					xpathSelector="//format"
+					regEx="(?i)^pdf document.*"
+				/>
+
+
+				<check name="isImage"
+					tool="file"
+					group="fileformat"
+					code="Das hochgeladene Dokument ist kein PDF- oder E-Book-Dokument. Bitte prüfen Sie das Dokument entsprechend. (This is not a PDF-File)"
+					xpathSelector="//format"
+					regEx="(?i)^pdf document.*"
+				/>
 
 
 			</level>
 
 		</profile>
+
 
 		<profile name="epubPdf">
 			<level>
@@ -218,9 +289,20 @@
 			</level>
 		</profile>
 		<namespaces>
-			<namespace name="jhove" uri="http://hul.harvard.edu/ois/xml/ns/jhove" />
+			<namespace name="jhove" uri="http://schema.openpreservation.org/ois/xml/ns/jhove" />
 		</namespaces>
 		<tools>
+			<tool name="jhove_jpeg"
+				cmd="/usr/bin/jhove -m JPEG-hul -h XML -o {pv.outputFile} {pv.inputFile}"
+				stdout="false"
+				xmlNamespace="jhove" />
+
+			<tool name="jhove_tif"
+				cmd="/usr/bin/jhove -h XML -o {pv.outputFile} {pv.inputFile}"
+				stdout="false"
+				xmlNamespace="jhove" />
+
+
 			<tool name="jhove_pdf"
 				cmd="/usr/bin/jhove -m PDF-hul -h XML -o {pv.outputFile} {pv.inputFile}"
 				stdout="false"
@@ -239,9 +321,14 @@
 				cmd="/opt/digiverso/goobi/config/pdfinfogawk.sh {pv.inputFile}"
 				stdout="true" />
 
+			<tool name="fileTypeCheck"
+				cmd="/opt/digiverso/goobi/config/fileTypeCheck.sh {pv.inputFile}"
+				stdout="true" />
+
 			<tool name="file"
 				cmd="/opt/digiverso/goobi/config/filegawk.sh {pv.inputFile}"
 				stdout="true" />
+
 
 			<tool name="xmllint"
 				cmd="/opt/digiverso/goobi/config/altoXmlValidation.sh {pv.inputFile}"
