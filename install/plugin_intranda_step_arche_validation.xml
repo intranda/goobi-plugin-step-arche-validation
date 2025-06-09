@@ -12,10 +12,28 @@
         <project>*</project>
         <step>*</step>
         
-        <!-- sample parameter -->
-        <value>test</value>
-        <!-- display button to finish the task directly from within the entered plugin -->
-        <allowTaskFinishButtons>true</allowTaskFinishButtons>
+        <requiredProjectProperties>
+            <field>contact</field>
+            <field>digitisingAgent</field>
+            <field>metadataCreator</field>
+            <field>owner</field>
+            <field>rightsHolder</field>
+            <field>licensor</field>
+            <field>depositor</field>
+            <field>curator</field>
+        </requiredProjectProperties>
+
+
+
+        <requiredProcessProperties>
+            <field>OAISet</field>
+        </requiredProcessProperties>
+
+        <requiredMetadata>
+            <field>CatalogIDDigital</field>
+            <field>TitleDocMain</field>
+        </requiredMetadata>
+
     </config>
 
 </config_plugin>

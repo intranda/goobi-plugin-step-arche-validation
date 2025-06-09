@@ -1,5 +1,11 @@
 package de.intranda.goobi.plugins;
 
+import java.io.IOException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Arrays;
+
 /**
  * This file is part of a plugin for Goobi - a Workflow tool for the support of mass digitization.
  *
@@ -20,52 +26,70 @@ package de.intranda.goobi.plugins;
  */
 
 import java.util.HashMap;
+import java.util.List;
 
 import org.apache.commons.configuration.SubnodeConfiguration;
+import org.goobi.beans.GoobiProperty;
+import org.goobi.beans.Process;
+import org.goobi.beans.Project;
 import org.goobi.beans.Step;
+import org.goobi.files.FileValidator;
+import org.goobi.production.enums.LogType;
 import org.goobi.production.enums.PluginGuiType;
 import org.goobi.production.enums.PluginReturnValue;
 import org.goobi.production.enums.PluginType;
 import org.goobi.production.enums.StepReturnValue;
 import org.goobi.production.plugin.interfaces.IStepPluginVersion2;
+import org.goobi.reporting.Report;
 
 import de.sub.goobi.config.ConfigPlugins;
+import de.sub.goobi.helper.Helper;
+import de.sub.goobi.helper.NIOFileUtils;
+import de.sub.goobi.helper.StorageProvider;
+import de.sub.goobi.helper.exceptions.DAOException;
+import de.sub.goobi.helper.exceptions.SwapException;
 import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
 import net.xeoh.plugins.base.annotations.PluginImplementation;
+import ugh.dl.DigitalDocument;
+import ugh.dl.DocStruct;
+import ugh.dl.Fileformat;
+import ugh.dl.Metadata;
+import ugh.exceptions.UGHException;
 
 @PluginImplementation
 @Log4j2
 public class ArcheValidationStepPlugin implements IStepPluginVersion2 {
-    
+
+    private static final long serialVersionUID = -1523547503913358197L;
     @Getter
     private String title = "intranda_step_arche_validation";
     @Getter
     private Step step;
-    @Getter
-    private String value;
-    @Getter 
-    private boolean allowTaskFinishButtons;
-    private String returnPath;
+    private Process process;
+    private Project project;
+
+    private List<String> projectFields;
+    private List<String> processFields;
+    private List<String> metadataFields;
 
     @Override
     public void initialize(Step step, String returnPath) {
-        this.returnPath = returnPath;
         this.step = step;
-                
+        process = step.getProzess();
+        project = process.getProjekt();
         // read parameters from correct block in configuration file
         SubnodeConfiguration myconfig = ConfigPlugins.getProjectAndStepConfig(title, step);
-        value = myconfig.getString("value", "default value"); 
-        allowTaskFinishButtons = myconfig.getBoolean("allowTaskFinishButtons", false);
-        log.info("ArcheValidation step plugin initialized");
+
+        projectFields = Arrays.asList(myconfig.getStringArray("/requiredProjectProperties/field"));
+        processFields = Arrays.asList(myconfig.getStringArray("/requiredProcessProperties/field"));
+        metadataFields = Arrays.asList(myconfig.getStringArray("/requiredMetadata/field"));
+
     }
 
     @Override
     public PluginGuiType getPluginGuiType() {
-        return PluginGuiType.FULL;
-        // return PluginGuiType.PART;
-        // return PluginGuiType.PART_AND_FULL;
-        // return PluginGuiType.NONE;
+        return PluginGuiType.NONE;
     }
 
     @Override
@@ -80,14 +104,14 @@ public class ArcheValidationStepPlugin implements IStepPluginVersion2 {
 
     @Override
     public String cancel() {
-        return "/uii" + returnPath;
+        return "";
     }
 
     @Override
     public String finish() {
-        return "/uii" + returnPath;
+        return "";
     }
-    
+
     @Override
     public int getInterfaceVersion() {
         return 0;
@@ -97,7 +121,7 @@ public class ArcheValidationStepPlugin implements IStepPluginVersion2 {
     public HashMap<String, StepReturnValue> validate() {
         return null;
     }
-    
+
     @Override
     public boolean execute() {
         PluginReturnValue ret = run();
@@ -106,13 +130,153 @@ public class ArcheValidationStepPlugin implements IStepPluginVersion2 {
 
     @Override
     public PluginReturnValue run() {
-        boolean successful = true;
-        // your logic goes here
-        
-        log.info("ArcheValidation step plugin executed");
-        if (!successful) {
+        List<String> validationErrors = new ArrayList<>();
+        // check if required project data is set
+        for (String propertyName : projectFields) {
+            boolean propertyFound = false;
+            for (GoobiProperty gp : project.getProperties()) {
+                if (propertyName.equalsIgnoreCase(gp.getPropertyName())) {
+                    propertyFound = true;
+                    break;
+                }
+            }
+            if (!propertyFound) {
+                Helper.setFehlerMeldung("Required project property not found: " + propertyName);
+                log.error("Required project property not found: " + propertyName);
+                return PluginReturnValue.ERROR;
+            }
+        }
+
+        // check if required process data is set
+        for (String propertyName : processFields) {
+            boolean propertyFound = false;
+            for (GoobiProperty gp : process.getProperties()) {
+                if (propertyName.equalsIgnoreCase(gp.getPropertyName())) {
+                    propertyFound = true;
+                    break;
+                }
+            }
+            if (!propertyFound) {
+                Helper.setFehlerMeldung("Required process property not found: " + propertyName);
+                log.error("Required process property not found: " + propertyName);
+                return PluginReturnValue.ERROR;
+            }
+        }
+
+        DocStruct logical = null;
+
+        try {
+            Fileformat fileformat = process.readMetadataFile();
+            DigitalDocument dd = fileformat.getDigitalDocument();
+            logical = dd.getLogicalDocStruct();
+            if (logical.getType().isAnchor()) {
+                logical = logical.getAllChildren().get(0);
+            }
+        } catch (UGHException | IOException | SwapException e) {
+            log.error(e);
             return PluginReturnValue.ERROR;
         }
+
+        if (logical == null) {
+            // metadata not readable
+            return PluginReturnValue.ERROR;
+        }
+
+        // check if required metadata is set
+        for (String propertyName : metadataFields) {
+            boolean propertyFound = false;
+            for (Metadata md : logical.getAllMetadata()) {
+                if (propertyName.equalsIgnoreCase(md.getType().getName())) {
+                    propertyFound = true;
+                    break;
+                }
+            }
+            if (!propertyFound) {
+                Helper.setFehlerMeldung("Required metadata not found: " + propertyName);
+                log.error("Required metadata not found: " + propertyName);
+                return PluginReturnValue.ERROR;
+            }
+        }
+
+        // check if folder exist
+
+        try {
+            Path masterFolder = Paths.get(process.getImagesOrigDirectory(false));
+            // master folder is missing
+            if (masterFolder == null) {
+                Helper.setFehlerMeldung("Master image folder not found");
+                log.error("Master image folder not found");
+                return PluginReturnValue.ERROR;
+            }
+
+            // check if files are valid
+            for (Path imageFile : StorageProvider.getInstance().listFiles(masterFolder.toString(), NIOFileUtils.fileFilter)) {
+                Report report = FileValidator.validateFile(imageFile, "master");
+                if (!report.isReachedTargetLevel()) {
+                    validationErrors.add("master folder: " + report.getFileName() + ": " + report.getErrorMessage());
+                }
+                Path testFolder = Paths.get(imageFile.toString().substring(0, imageFile.toString().lastIndexOf(".")));
+                StorageProvider.getInstance().deleteDir(testFolder);
+            }
+
+        } catch (SwapException | IOException | DAOException e) {
+            log.error(e);
+        }
+
+        try {
+            Path mediaFolder = Paths.get(process.getImagesTifDirectory(false));
+            // master folder is missing
+            if (mediaFolder == null) {
+                Helper.setFehlerMeldung("Media image folder not found");
+                log.error("Media image folder not found");
+                return PluginReturnValue.ERROR;
+            }
+
+            // check if files are valid
+            for (Path imageFile : StorageProvider.getInstance().listFiles(mediaFolder.toString(), NIOFileUtils.fileFilter)) {
+                Report report = FileValidator.validateFile(imageFile, "media");
+                if (!report.isReachedTargetLevel()) {
+                    validationErrors.add("media folder: " + report.getFileName() + ": " + report.getErrorMessage());
+                }
+                Path testFolder = Paths.get(imageFile.toString().substring(0, imageFile.toString().lastIndexOf(".")));
+                StorageProvider.getInstance().deleteDir(testFolder);
+            }
+
+        } catch (SwapException | IOException e) {
+            log.error(e);
+        }
+
+        try {
+            // if alto files exist, validate them against schema
+            Path altoFolder = Paths.get(process.getOcrAltoDirectory());
+            if (altoFolder != null) {
+                List<Path> altoFiles = StorageProvider.getInstance().listFiles(altoFolder.toString(), NIOFileUtils.fileFilter);
+                for (Path altoFile : altoFiles) {
+                    Report report = FileValidator.validateFile(altoFile, "alto");
+                    if (!report.isReachedTargetLevel()) {
+                        validationErrors.add("alto folder: " + report.getFileName() + ": " + report.getErrorMessage());
+                    }
+                    Path testFolder = Paths.get(altoFile.toString().substring(0, altoFile.toString().lastIndexOf(".")));
+                    StorageProvider.getInstance().deleteDir(testFolder);
+                }
+            }
+
+        } catch (SwapException | IOException e) {
+            log.error(e);
+        }
+
+        if (!validationErrors.isEmpty()) {
+            StringBuilder sb = new StringBuilder();
+            for (String error : validationErrors) {
+                if (!sb.isEmpty()) {
+                    sb.append("\n");
+                }
+                sb.append(error);
+            }
+            Helper.addMessageToProcessJournal(process.getId(), LogType.ERROR, sb.toString());
+            return PluginReturnValue.ERROR;
+        }
+
         return PluginReturnValue.FINISH;
     }
 }

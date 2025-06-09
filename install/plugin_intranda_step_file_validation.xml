@@ -1,0 +1,338 @@
+<config_plugin>
+	<!-- order of configuration is: 1.) project name and step name matches 2.) 
+		step name matches and project is * 3.) project name matches and step name 
+		is * 4.) project name and step name are * -->
+
+	<config>
+		<!-- which projects to use for (can be more then one, otherwise use *) -->
+		<project>*</project>
+		<!-- which stepss to use for (can be more then one, otherwise use *) -->
+		<step>*</step>
+		<!-- input folder where the documents are located, is only used in the STEP-Plugin -->
+		<!--inputFolder>/opt/digiverso/goobi/tmp/</inputFolder-->
+		<inputFolder>{tifpath}</inputFolder>
+		<!-- outputfolder where the folder with the tool reports will be created, is only used in the STEP-Plugin -->
+		<outputFolder>{processpath}/validation</outputFolder>
+		<!-- fileFilter: regex-Pattern that allows to filter by filename and fileextension -->
+		<fileFilter>(?i).*\.pdf|.*\.epub</fileFilter>
+		<!-- name of the profile that shall be used by this config blog -->
+		<profileName>epubPdf</profileName>
+		<!--targetLevel
+		that must be reached for a successful plugin run -->
+		<targetLevel>3</targetLevel>
+	</config>
+	<config>
+		<!-- which institution to use for (can be more then one, otherwise use *) -->
+		<institution>*</institution>
+		<outputFolder>{processpath}/validation</outputFolder>
+		<profileName>epubPdf</profileName>
+		<targetLevel>3</targetLevel>
+	</config>
+
+
+	<config>
+		<institution>alto</institution>
+		<outputFolder>{processpath}/validation</outputFolder>
+		<profileName>alto</profileName>
+		<targetLevel>1</targetLevel>
+	</config>
+	<config>
+		<institution>master</institution>
+		<outputFolder>{processpath}/validation</outputFolder>
+		<profileName>image</profileName>
+		<targetLevel>1</targetLevel>
+	</config>
+	<config>
+		<institution>media</institution>
+		<outputFolder>{processpath}/validation</outputFolder>
+		<profileName>image</profileName>
+		<targetLevel>1</targetLevel>
+	</config>
+
+	<!-- global has the child elements
+		profile, namespaces and tools
+		
+		profile contains the definition of the ingest levels. It also has the attribute name, 
+		so you can refer to the profile in the config-blog element profileName 
+		the order of the levels defines their numbering, the first level element defines level zero and so on.
+		
+		a level element can contain check- and setValue- elements.
+		
+		a check element has following attributes
+			name:		name of the check
+			dependsOn:	name of the check that must have been successful, if this check shall be executed
+					a check can only depend on a check that was defined before it.
+					the parameter is optional
+			tool:	name of the tool that must be executed to create the report
+			group:  checks can be grouped. grouped checks are OR-operated which means, that the level won't fail if one check
+				of the group is successful. ( i.e. check for isPDF-A and isPDFx in one level)
+			code:	Errorcode or Errormessage that shall be displayed when the check fails /regex doesn't match node does not exist
+			xpathSelector: xpathSelector to selct the node or attribute value
+			regex:	regular expression that will be matched with the read value, if no regular expression is
+				provided the check will only test if the node exists.
+			namespace: (only needed if the specified check uses another namespace than the tool and if 
+					namespaces are used)
+					
+		a setValue element has following attributes
+			name:		name of the check
+			dependsOn:	name of the check that must have been successful if this setValue-Element shall be executed
+					a setValue-Element can only depend on a check not on other setValue Elements. set value Elements will always be 
+					executed after the checks.
+					the parameter is mandatory
+			tool:	name of the tool that must have ben executed to create the report
+			code:	Errorcode or Errormessage that shall be displayed when value retrival fails.
+			xpathSelector: xpathSelector to selct an attribute value
+			namespace: (only needed if the specified setValue-Element uses another namespace than the tool and if 
+					namespaces are used)
+					
+		a tools element contains multiple tool elements
+		a tool element hast the attributes
+			name:		name of the tool
+			cmd:		the command that must be run to create the xml report. you can use the {pv.outputFile} variable to refer to 
+			stdout:		if stdout is true, the reportfile will be generated from the commandline output of the file. if it is set to false 
+					the plugins assumes the tool is able to create the file by itself
+			xmlNamespace:	the name of the xml-namespace the generated report uses "jhove"
+		
+		a namespaces element can contain multiple namespace elements
+		a namespace element has the attributes:
+			name: 	the name of the xml namespace used in the xml and to address it in xmlNamespace attributes of tool-, check- and setValue-Elements 
+			uri:	the uri of the xml namespace
+	-->
+	<global>
+		<profile name="image">
+			<level>
+				<check name="isJPEG"
+					tool="fileTypeCheck"
+					group="fileformat"
+					code="Das Dokument ist keine Bild-Datei. (This is not an image file)"
+					xpathSelector="/file"
+					regEx=".* JPEG image data.*"
+				/>
+				<check name="isTIF"
+					tool="fileTypeCheck"
+					group="fileformat"
+					code="Das Dokument ist keine Bild-Datei. (This is not an image file)"
+					xpathSelector="/file"
+					regEx=".* TIFF image data.*"
+				/>
+			</level>
+
+			<level>
+				<check name="isValidJPEG"
+					dependsOn="isJPEG"
+					tool="jhove_jpeg"
+					code="JPEG Validation failed"
+					xpathSelector="//jhove:repInfo/jhove:status"
+					regex="Well-Formed and valid"
+				/>
+
+				<check name="isValidTIF"
+					dependsOn="isTIF"
+					tool="jhove_tif"
+					code="TIF Validation failed"
+					xpathSelector="//jhove:repInfo/jhove:status"
+					regex="Well-Formed and valid"
+				/>
+			</level>
+		</profile>
+
+
+		<profile name="alto">
+
+			<level>
+				<check name="isXml"
+					tool="file"
+					group="fileformat"
+					code="Das Dokument ist keine XML-Datei. (This is not an XML file)"
+					xpathSelector="//format"
+					regEx="(?i)^XML 1.0 document.*"
+				/>
+			</level>
+
+			<level>
+
+				<!-- success message: /path/to/file/00000001.xml validates -->
+				<!-- error message: /path/to/file/00000001.xml fails to validate -->
+				<check name="isValidALTO"
+					dependsOn="isXml"
+					tool="xmllint"
+					code="ALTO Validation failed"
+					xpathSelector="//result"
+					regEx=".*xml validates"
+				/>
+			</level>
+		</profile>
+
+		<profile name="imageFolderValidation">
+			<level>
+				<check name="isPDF"
+					tool="file"
+					group="fileformat"
+					code="Das hochgeladene Dokument ist kein PDF- oder E-Book-Dokument. Bitte prüfen Sie das Dokument entsprechend. (This is not a PDF-File)"
+					xpathSelector="//format"
+					regEx="(?i)^pdf document.*"
+				/>
+
+
+				<check name="isImage"
+					tool="file"
+					group="fileformat"
+					code="Das hochgeladene Dokument ist kein PDF- oder E-Book-Dokument. Bitte prüfen Sie das Dokument entsprechend. (This is not a PDF-File)"
+					xpathSelector="//format"
+					regEx="(?i)^pdf document.*"
+				/>
+
+
+			</level>
+
+		</profile>
+
+
+		<profile name="epubPdf">
+			<level>
+				<!-- 0 DI check Integrity of Document -->
+				<!--checksum
+				test should be done here -->
+			</level>
+			<level>
+				<!-- 1 ID Document with JHOVE -->
+				<check name="isPDF"
+					tool="file"
+					group="fileformat"
+					code="Das hochgeladene Dokument ist kein PDF- oder E-Book-Dokument. Bitte prüfen Sie das Dokument entsprechend. (This is not a PDF-File)"
+					xpathSelector="//format"
+					regEx="(?i)^pdf document.*"
+				/>
+
+				<check name="isEPUB"
+					tool="file"
+					group="fileformat"
+					code="Das hochgeladene Dokument ist kein PDF- oder E-Book-Dokument. Bitte prüfen Sie das Dokument entsprechend. (This is not an EPUB-File)"
+					xpathSelector="//format"
+					regEx="(?i)^epub document.*"
+				/>
+			</level>
+			<level>
+				<!-- 2 BF check for encryption or access restrictions -->
+				<check name="checkEncryption"
+					dependsOn="isPDF"
+					tool="pdfinfo"
+					code="Das hochgeladene Dokument ist verschlüsselt oder hat sonstige Zugangsbeschränkungen. Bitte prüfen Sie dies und beseitigen Sie die Verschlüsselung bzw. die Zugangsbeschränkungen. Weitere Informationen finden Sie auf den Hilfe-Seiten."
+					xpathSelector="//pdfinfo/Encrypted"
+					regEx="^no$"
+				/>
+
+			</level>
+			<level>
+				<!-- 3 MD Extraction of Metadata -->
+
+				<setValue name="PdfVersion"
+					dependsOn="isPDF"
+					tool="jhove_pdf"
+					code="Could not read Version Information!"
+					xpathSelector="//jhove:repInfo/jhove:version"
+					processProperty="PDFVersion"
+				/>
+				<setValue name="FilesizePDF"
+					dependsOn="isPDF"
+					tool="jhove_pdf"
+					code="Couldn't obtain Filesize"
+					xpathSelector="//jhove:repInfo/jhove:size"
+					processProperty="Filesize"
+				/>
+				<setValue name="EPUBVersion"
+					dependsOn="isEPUB"
+					tool="jhove_epub"
+					code="Could not read Version Information!"
+					xpathSelector="//jhove:repInfo/jhove:version"
+					processProperty="EPUBVersion"
+				/>
+				<setValue name="FilesizeEPUB"
+					dependsOn="isEPUB"
+					tool="jhove_epub"
+					code="Couldn't obtain Filesize"
+					xpathSelector="//jhove:repInfo/jhove:size"
+					processProperty="Filesize"
+				/>
+			</level>
+			<level>
+				<!-- 4 V Validity -->
+				<check name="checkPDFVersion"
+					dependsOn="isPDF"
+					tool="jhove_pdf"
+					code="The Version of the PDF-File is not supported by this Version of JHOVE"
+					xpathSelector="//jhove:repInfo/jhove:version"
+					regEx="^1\.[012456]$|^2\.0$"
+				/>
+				<check name="isValidPDF"
+					dependsOn="checkPDFVersion"
+					tool="jhove_pdf"
+					code="PDF Validation failed"
+					xpathSelector="//jhove:repInfo/jhove:status"
+					regex="Well-Formed and valid"
+				/>
+				<check name="isValidEPUB"
+					dependsOn="isEPUB"
+					tool="jhove_epub"
+					code="EPUB Validation failed"
+					xpathSelector="//jhove:repInfo/jhove:status"
+					regex="Well-Formed and valid"
+				/>
+				<!--
+				<check name="pdf-a validation"
+					tool="verapdf" 
+					code="pdfa_validation_failed" 
+					xpathSelector="xpathSelector"
+					regEx="regEx" 
+				/>
+				-->
+			</level>
+		</profile>
+		<namespaces>
+			<namespace name="jhove" uri="http://schema.openpreservation.org/ois/xml/ns/jhove" />
+		</namespaces>
+		<tools>
+			<tool name="jhove_jpeg"
+				cmd="/usr/bin/jhove -m JPEG-hul -h XML -o {pv.outputFile} {pv.inputFile}"
+				stdout="false"
+				xmlNamespace="jhove" />
+
+			<tool name="jhove_tif"
+				cmd="/usr/bin/jhove -h XML -o {pv.outputFile} {pv.inputFile}"
+				stdout="false"
+				xmlNamespace="jhove" />
+
+
+			<tool name="jhove_pdf"
+				cmd="/usr/bin/jhove -m PDF-hul -h XML -o {pv.outputFile} {pv.inputFile}"
+				stdout="false"
+				xmlNamespace="jhove" />
+
+			<tool name="jhove_epub"
+				cmd="/usr/bin/jhove -m EPUB-ptc -h XML -o {pv.outputFile} {pv.inputFile}"
+				stdout="false"
+				xmlNamespace="jhove" />
+
+			<tool name="verapdf"
+				cmd="/opt/digiverso/verapdf/verapdf --format mrr {pv.inputFile}"
+				stdout="true" />
+
+			<tool name="pdfinfo"
+				cmd="/opt/digiverso/goobi/config/pdfinfogawk.sh {pv.inputFile}"
+				stdout="true" />
+
+			<tool name="fileTypeCheck"
+				cmd="/opt/digiverso/goobi/config/fileTypeCheck.sh {pv.inputFile}"
+				stdout="true" />
+
+			<tool name="file"
+				cmd="/opt/digiverso/goobi/config/filegawk.sh {pv.inputFile}"
+				stdout="true" />
+
+
+			<tool name="xmllint"
+				cmd="/opt/digiverso/goobi/config/altoXmlValidation.sh {pv.inputFile}"
+				stdout="true" />
+		</tools>
+	</global>
+</config_plugin>
