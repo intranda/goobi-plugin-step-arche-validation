@@ -1,8 +1,8 @@
 ---
-title: Validierung von Metadaten und Eigenschaften für den ARCHE ingest
+title: Validierung von Metadaten und Eigenschaften für den ARCHE-Ingest
 identifier: intranda_step_arche_validation
 description: Step Plugin für die Validierung von Metadaten und Eigenschaften
-published: false
+published: true
 ---
 
 ## Einführung
@@ -14,7 +14,6 @@ Um das Plugin nutzen zu können, müssen folgende Dateien installiert werden:
 ```bash
 /opt/digiverso/goobi/plugins/step/plugin-step-arche-validation-base.jar
 /opt/digiverso/goobi/config/plugin_intranda_step_arche_validation.jar
-
 ```
 
 Außerdem muss das Plugin `intranda_step_file_validation` installiert und konfiguriert sein.
@@ -31,7 +30,7 @@ Für die Verwendung des Plugins muss dieses in einem Arbeitsschritt ausgewählt 
 ## Überblick und Funktionsweise
 
 Das Plugin ist in der Lage, das Vorgandensein von definierten Eigenschaften für das Projekt und den Vorgang zu prüfen. Außerdem können Pflichtmetadaten geprüft werden.
-Zusätzlich werden alle Dateien im master- media- und alto Ordner validiert.
+Zusätzlich werden alle Dateien im `master`-, `media`- und `alto`-Ordner validiert.
 
 
 ## Konfiguration
@@ -41,10 +40,10 @@ Die Konfiguration des Plugins erfolgt in der Datei `plugin_intranda_step_arche_v
 
 {{CONFIG_DESCRIPTION_PROJECT_STEP}}
 
-Parameter               | Erläuterung
-------------------------|------------------------------------
+Parameter                   | Erläuterung
+----------------------------|------------------------------------
 `requiredProjectProperties` | Enthält eine Liste von Eigenschaften, die im Projekt vorhanden sein müssen
-`requiredProcessProperties`  | Enthält eine Liste von Eigenschaften, die im Vorgang enthalten sein müssen
-`requiredMetadata`  | Enthält eine Liste von Metadaten, die existieren müssen
+`requiredProcessProperties` | Enthält eine Liste von Eigenschaften, die im Vorgang enthalten sein müssen
+`requiredMetadata`          | Enthält eine Liste von Metadaten, die existieren müssen
 
 Die weitere Konfiguration für die Validierung der Dateien findet im Plugin `intranda_step_file_validation` statt.

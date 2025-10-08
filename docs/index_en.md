@@ -1,68 +1,48 @@
 ---
-title: ZZZ
-identifier: intranda_step_ZZZ
-description: Step Plugin for ZZZ
-published: false
+title: Validation of metadata and properties for ARCHE ingest
+identifier: intranda_step_arche_validation
+description: Step plugin for validating metadata and properties
+published: true
 ---
 
 ## Introduction
-This documentation explains the plugin for ZZZ.
+This documentation explains the plugin for validating metadata and properties.
 
 ## Installation
-To be able to use the plugin, the following files must be installed:
+To use the plugin, the following files must be installed:
 
 ```bash
-/opt/digiverso/goobi/plugins/step/plugin-step-ZZZ-base.jar
-/opt/digiverso/goobi/plugins/GUI/plugin-step-ZZZ-gui.jar
-/opt/digiverso/goobi/config/plugin_intranda_step_ZZZ.xml
+/opt/digiverso/goobi/plugins/step/plugin-step-arche-validation-base.jar
+/opt/digiverso/goobi/config/plugin_intranda_step_arche_validation.jar
 ```
 
-Once the plugin has been installed, it can be selected within the workflow for the respective work steps and thus executed automatically. A workflow could look like the following example:
+In addition, the `intranda_step_file_validation` plugin must be installed and configured.
 
-![Example of a workflow structure](screen1_en.png)
+Once the plugin has been installed, it can be selected within the workflow for the respective work steps and thus executed automatically. An example workflow could look like this:
 
-To use the plugin, it must be selected in a workflow step:
+![Example workflow structure](screen1_en.png)
 
-![Configuration of the workflow step for using the plugin](screen2_en.png)
+Für die Verwendung des Plugins muss dieses in einem Arbeitsschritt ausgewählt sein:
+
+![Configuring the workflow step for using the plugin](screen2_en.png)
 
 
 ## Overview and functionality
-ZZZ
 
+The plugin is able to check the existence of defined properties for the project and the process. Mandatory metadata can also be checked.
+In addition, all files in the `master`, `media` and `alto` folders are validated.
 
 ## Configuration
-The plugin is configured in the file `plugin_intranda_step_ZZZ.xml` as shown here:
+The plugin is configured in the file `plugin_intranda_step_arche_validation.xml` as shown here:
 
 {{CONFIG_CONTENT}}
 
 {{CONFIG_DESCRIPTION_PROJECT_STEP}}
 
-Parameter               | Explanation
-------------------------|------------------------------------
-``                      | 
-``                      | 
-``                      | 
-``                      | 
-``                      | 
-``                      | 
-``                      | 
-``                      | 
-``                      | 
-``                      | 
-``                      | 
-``                      | 
-``                      | 
-``                      | 
-``                      | 
-``                      | 
-``                      | 
-``                      | 
-``                      | 
-``                      | 
-``                      | 
-``                      | 
-``                      | 
-``                      | 
-``                      | 
-``                      | 
-``                      | 
+Parameter                   | Explanation
+----------------------------|------------------------------------
+`requiredProjectProperties` | Contains a list of properties that must be present in the project.
+`requiredProcessProperties` | Contains a list of properties that must be included in the operation.
+`requiredMetadata`          | Contains a list of metadata that must exist
+
+Further configuration for file validation takes place in the plugin `intranda_step_file_validation`.
