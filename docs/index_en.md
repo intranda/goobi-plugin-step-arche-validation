@@ -3,6 +3,10 @@ title: Validation of metadata and properties for ARCHE ingest
 identifier: intranda_step_arche_validation
 description: Step plugin for validating metadata and properties
 published: true
+keywords:
+    - Goobi workflow
+    - Plugin
+    - Step Plugin
 ---
 
 ## Introduction
