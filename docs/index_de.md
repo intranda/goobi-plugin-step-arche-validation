@@ -33,7 +33,7 @@ Für die Verwendung des Plugins muss dieses in einem Arbeitsschritt ausgewählt 
 
 ## Überblick und Funktionsweise
 
-Das Plugin ist in der Lage, das Vorgandensein von definierten Eigenschaften für das Projekt und den Vorgang zu prüfen. Außerdem können Pflichtmetadaten geprüft werden.
+Das Plugin ist in der Lage, das Vorhandensein von definierten Eigenschaften für das Projekt und den Vorgang zu prüfen. Außerdem können Pflichtmetadaten geprüft werden.
 Zusätzlich werden alle Dateien im `master`-, `media`- und `alto`-Ordner validiert.
 
 
